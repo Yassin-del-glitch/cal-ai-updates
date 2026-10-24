@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Muscle Atlas 3D — v2</title>
+<style>
+ *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+ body{background:radial-gradient(ellipse at 50% 32%,#1d2027 0%,#0c0d10 62%);color:#f2f2f5;font-family:system-ui,'Segoe UI',Tahoma,sans-serif;overflow:hidden;height:100dvh}
+ #app{position:fixed;inset:0} canvas{display:block;touch-action:none}
+ header{position:absolute;top:0;left:0;right:0;padding:13px 16px 4px;text-align:center;pointer-events:none;z-index:5}
+ header h1{font-size:20px;font-weight:800} header h1 span{color:#f97316}
+ header p{color:#9a9aa5;font-size:12px;margin-top:1px}
+ #loading{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;background:#0c0d10;z-index:40;text-align:center;padding:20px}
+ #loading .spin{width:42px;height:42px;border-radius:50%;border:4px solid #2a2b31;border-top-color:#f97316;animation:sp .9s linear infinite}
+ @keyframes sp{to{transform:rotate(360deg)}} #loading small{color:#9a9aa5;line-height:1.8}
+ .presets{position:absolute;top:82px;inset-inline-end:10px;display:flex;flex-direction:column;gap:7px;z-index:6}
+ .presets button,.toolbtn{background:#1b1c22e8;color:#f2f2f5;border:1.5px solid #2e2f37;border-radius:999px;padding:8px 13px;font-size:13px;font-weight:700;cursor:pointer}
+ .presets button.active,.toolbtn.on{background:#f97316;border-color:#f97316;color:#161616}
+ .tools{position:absolute;top:82px;inset-inline-start:10px;display:flex;flex-direction:column;gap:7px;z-index:6}
+ #resetBtn{position:absolute;bottom:212px;inset-inline-end:12px;width:50px;height:50px;border-radius:50%;background:#1b1c22e8;border:1.5px solid #2e2f37;color:#fff;font-size:21px;cursor:pointer;z-index:6}
+ #aiBtn{position:absolute;bottom:270px;inset-inline-end:12px;width:50px;height:50px;border-radius:50%;background:#f97316;border:none;color:#161616;font-size:15px;font-weight:900;cursor:pointer;z-index:8;box-shadow:0 4px 18px rgba(249,115,22,.5)}
+ .hint{position:absolute;bottom:196px;left:0;right:0;text-align:center;color:#8b8b96;font-size:11px;z-index:4;pointer-events:none}
+ #sheet{position:absolute;left:0;right:0;bottom:0;background:#14151ae8;backdrop-filter:blur(10px);border-top:1.5px solid #2a2b31;border-radius:20px 20px 0 0;padding:11px 15px 15px;z-index:7;height:188px;overflow-y:auto}
+ #sheet .kicker{color:#f97316;font-size:11px;font-weight:800;text-align:center;letter-spacing:.4px}
+ #sheet h2{font-size:18.5px;text-align:center;margin:2px 0 1px}
+ #sheet .sub{color:#ffb37a;font-size:13px;text-align:center;font-weight:700;min-height:16px}
+ #sheet p{color:#c9c9d2;font-size:13px;line-height:1.7;text-align:center;margin-top:3px}
+ #sheet .org{color:#8f8f9a;font-size:11.5px;text-align:center;margin-top:2px;direction:ltr}
+ #heads{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:7px}
+ #heads button{background:#1e1f26;color:#f2f2f5;border:1.5px solid #33343d;border-radius:999px;padding:6px 11px;font-size:12.5px;font-weight:700;cursor:pointer}
+ #heads button.active{background:#f97316;border-color:#f97316;color:#161616}
+ .row{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+ .row button{background:#23242c;color:#eee;border:1px solid #34353f;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+ .row button.on{background:#f97316;color:#161616;border-color:#f97316}
+ label.tgl{font-size:12px;color:#c9c9d2;display:flex;align-items:center;gap:5px;background:#23242c;border:1px solid #34353f;border-radius:10px;padding:6px 10px;font-weight:700}
+ .panel{position:absolute;inset-inline-start:0;top:0;bottom:0;width:min(78vw,300px);background:#121317f5;z-index:30;padding:16px 14px;overflow-y:auto;transform:translateX(-105%);transition:transform .3s;border-inline-end:1.5px solid #2a2b31}
+ [dir=rtl] .panel{transform:translateX(105%)} .panel.open{transform:translateX(0)!important}
+ .panel h3{font-size:16px;margin-bottom:4px} .panel .hint2{color:#8f8f9a;font-size:12px;margin-bottom:10px;line-height:1.7}
+ .panel .mbtn{display:block;width:100%;text-align:start;background:#1c1d24;border:1px solid #2e2f37;color:#eee;border-radius:11px;padding:9px 11px;margin-bottom:6px;font-size:13.5px;font-weight:700;cursor:pointer}
+ .panel .mbtn small{display:block;color:#f97316;font-weight:700;font-size:11px;margin-top:1px}
+ #aiPanel{position:absolute;left:0;right:0;bottom:0;top:16%;background:#121318fa;z-index:35;border-top:1.5px solid #2a2b31;border-radius:22px 22px 0 0;display:none;flex-direction:column;padding:14px 14px 12px}
+ #aiPanel.open{display:flex}
+ #aiPanel h3{font-size:16.5px} #aiPanel .hint2{color:#8f8f9a;font-size:12px;line-height:1.7;margin:3px 0 8px}
+ #aiMsgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 2px}
+ .msg{max-width:88%;padding:9px 12px;border-radius:15px;font-size:13.5px;line-height:1.8;white-space:pre-wrap}
+ .msg.u{align-self:flex-start;background:#f97316;color:#161616;font-weight:700;border-bottom-right-radius:4px}
+ .msg.a{align-self:flex-end;background:#1e1f27;color:#eee;border:1px solid #2e2f37;border-bottom-left-radius:4px}
+ #aiRow{display:flex;gap:7px;margin-top:9px}
+ #aiInput{flex:1;background:#1c1d24;border:1.5px solid #33343d;border-radius:12px;color:#fff;padding:11px;font-size:14px}
+ #aiSend{background:#f97316;border:none;color:#161616;font-weight:900;border-radius:12px;padding:0 18px;font-size:14px;cursor:pointer}
+ #keyRow{display:flex;gap:7px;margin-top:7px}
+ #keyInput{flex:1;background:#17181e;border:1px solid #2c2d35;border-radius:10px;color:#bbb;padding:8px;font-size:12px;direction:ltr}
+ #keySave{background:#23242c;color:#eee;border:1px solid #34353f;border-radius:10px;padding:0 12px;font-size:12px;font-weight:700;cursor:pointer}
+ .x{float:left;background:#23242c;border:1px solid #34353f;color:#eee;border-radius:9px;padding:4px 10px;cursor:pointer;font-weight:800}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<header><h1>Muscle <span>Atlas</span> 3D</h1><p>v3 — موديل تشريح حقيقي (Z-Anatomy) • دوس على أي عضلة</p></header>
+<div id="loading"><div class="spin"></div><div>بيحمّل المجسّم…</div><small>محتاج نت أول مرة عشان المكتبة والموديل (حوالي 8MB).</small><div id="loadPct" style="color:#f97316;font-weight:800"></div></div>
+
+<div class="presets">
+ <button data-view="threequarter" class="active">3/4</button>
+ <button data-view="front">Front</button>
+ <button data-view="back">Back</button>
+ <button data-view="left">Left</button>
+ <button data-view="right">Right</button>
+</div>
+<div class="tools">
+ <button class="toolbtn" id="listBtn">☰ العضلات</button>
+ <button class="toolbtn" id="labelsBtn">Labels</button>
+ <button class="toolbtn on" id="bonesBtn">Skeleton</button>
+ <button class="toolbtn" id="otherBtn">Bursae</button>
+</div>
+<button id="aiBtn">AI</button>
+<button id="resetBtn" title="Reset View">⟳</button>
+<div class="hint">صباع: لفّ 360° • صوبعين: زووم وحرّك • دوس على عضلة تتقسم لرؤوسها</div>
+
+<div id="sheet">
+ <div class="kicker" id="mKick">SELECTED MUSCLE</div>
+ <h2 id="mName">لسه مخترتش عضلة</h2>
+ <div class="sub" id="mSub"></div>
+ <p id="mInfo">لفّ المجسّم ودوس على أي عضلة حقيقية — هيطلع اسمها وشرحها، ولو ليها رؤوس هتلاقي أزرارها تحت.</p>
+ <div class="org" id="mOrg"></div>
+ <div id="heads"></div>
+ <div class="row">
+  <button id="focusBtn">🎯 Focus</button>
+  <button id="fullBtn">⤢ Full Body</button>
+  <button id="fadeBtn">Fade</button>
+  <button id="isoBtn">Isolate</button>
+  <label class="tgl"><input type="checkbox" id="inertiaChk" checked> Inertia</label>
+ </div>
+</div>
+
+<div class="panel" id="listPanel">
+ <button class="x" id="listClose">✕</button>
+ <h3>كل العضلات</h3>
+ <div class="hint2">دوس على عضلة عشان تتحدد وتتقسم لرؤوسها والكاميرا تروح لها.</div>
+ <div id="listItems"></div>
+</div>
+
+<div id="aiPanel">
+ <button class="x" id="aiClose">✕</button>
+ <h3>🤖 مساعد التشريح</h3>
+ <div class="hint2">اسألني عن أي عضلة أو رأس — زي: «وظيفة الـ Long Head» أو «الـ Quadriceps كام رأس؟» أو «أكبر عضلة ايه؟». بيجاوب فورًا من قاعدة بيانات التطبيق، ولو حطيت مفتاح Gemini بتاعك تحت هيجاوبك AI كامل عن أي سؤال تشريح.</div>
+ <div id="aiMsgs"></div>
+ <div id="aiRow"><input id="aiInput" placeholder="اسأل عن عضلة أو رأس…"><button id="aiSend">ابعت</button></div>
+ <div id="keyRow"><input id="keyInput" type="password" placeholder="Gemini API key (اختياري)"><button id="keySave">حفظ</button></div>
+</div>
+
+<script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+const el=id=>document.getElementById(id);
+const app=el('app');
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.05,100);
+const HOME_POS=new THREE.Vector3(2.3,2.05,4.7), HOME_TGT=new THREE.Vector3(0,1.68,0);
+camera.position.copy(HOME_POS);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
+app.appendChild(renderer.domElement);
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.copy(HOME_TGT);
+controls.enableDamping=true; controls.dampingFactor=0.06;
+controls.minDistance=0.35; controls.maxDistance=11; controls.enablePan=true; controls.update();
+scene.add(new THREE.HemisphereLight(0xdfe8ff,0x3a241e,0.9));
+const keyL=new THREE.DirectionalLight(0xffffff,2.2); keyL.position.set(3,6,4); scene.add(keyL);
+const rimL=new THREE.DirectionalLight(0xff9a50,1.1); rimL.position.set(-4,3,-5); scene.add(rimL);
+const fillL=new THREE.DirectionalLight(0x88aaff,0.55); fillL.position.set(-3,1,4); scene.add(fillL);
+(function(){ const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+ const gr=g.createRadialGradient(64,64,6,64,64,62); gr.addColorStop(0,'rgba(0,0,0,0.5)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+ g.fillStyle=gr; g.fillRect(0,0,128,128);
+ const p=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.0), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+ p.rotation.x=-Math.PI/2; p.position.y=0.002; scene.add(p); })();
+
+const MODEL_URLS=['https://cdn.jsdelivr.net/gh/Yassin-del-glitch/cal-ai-updates@main/muscle-atlas/body.glb',
+                  'https://raw.githubusercontent.com/Yassin-del-glitch/cal-ai-updates/main/muscle-atlas/body.glb'];
+const MUSCLE_MAT=new THREE.MeshStandardMaterial({color:0x9e3b2d,roughness:0.46,metalness:0.05,envMapIntensity:0.55});
+const BONE_MAT=new THREE.MeshStandardMaterial({color:0xe8dfca,roughness:0.62,metalness:0.0,envMapIntensity:0.4});
+const OTHER_MAT=new THREE.MeshStandardMaterial({color:0xb08d5f,roughness:0.7,metalness:0.0,envMapIntensity:0.3,transparent:true,opacity:0.85});
+
+function mapMesh(name){
+ const n=(name||'').trim().toLowerCase();
+ if(n==='short head of biceps brachii') return {mk:'biceps',hid:'short'};
+ if(n==='biceps') return {mk:'biceps',hid:'long'};
+ if(n==='short head of biceps femoris'||n==='biceps femoris') return {mk:'hamstrings',hid:'bf'};
+ if(n==='semitendinosus') return {mk:'hamstrings',hid:'st'};
+ if(n==='semimembranosus') return {mk:'hamstrings',hid:'sm'};
+ const T={'triceps':['triceps',null],'deltoid':['deltoid',null],'pectoralis major':['pecMajor',null],'pectoralis minor':['pecMinor',null],
+ 'trapezius':['trapezius',null],'quadriceps femoris':['quads',null],'gastrocnemius':['gastroc',null],'latissimus dorsi':['latDorsi',null],
+ 'rectus abdominis':['rectusAbd',null],'abdominal external oblique':['oblique',null],'external oblique':['oblique',null],
+ 'serratus anterior':['serratus',null],'gluteus maximus':['gluteMax',null],'gluteus medius':['gluteMed',null],
+ 'sternocleidomastoid':['scm',null],'masseter':['masseter',null],'temporal':['temporalis',null],'brachialis':['brachialis',null],
+ 'brachioradialis':['brachioradialis',null],'infraspinatus':['infraspinatus',null],'teres major':['teresMajor',null],
+ 'sartorius':['sartorius',null],'adductor longus':['addLongus',null],'gracilis':['gracilis',null],'soleus':['soleus',null],
+ 'tibialis anterior':['tibAnt',null],'peroneus longus':['peroneus',null],'fibularis longus':['peroneus',null],
+ 'psoas major':['iliopsoas',null],'iliacus':['iliopsoas',null],'tensor fasciae latae':['tfl',null],
+ 'iliocostalis':['erector',null],'longissimus':['erector',null],'spinalis':['erector',null],'multifidus':['erector',null]};
+ if(T[n]) return {mk:T[n][0],hid:T[n][1]};
+ if(n.startsWith('rhomboid')) return {mk:'rhomboids',hid:null};
+ if(n.startsWith('flexor')||n==='palmaris longus'||n.startsWith('pronator')) return {mk:'foreFlex',hid:null};
+ if(n.startsWith('extensor')||n==='supinator'||n==='abductor pollicis longus') return {mk:'foreExt',hid:null};
+ return null;
+}
+function cleanDesc(name,s){
+ if(!s) return '';
+ let t=s.replace(/\s+/g,' ').trim();
+ const nm=(name||'').toUpperCase();
+ if(nm && t.toUpperCase().startsWith(nm)) t=t.slice(nm.length).trim();
+ return t.slice(0,430)+(t.length>430?'…':'');
+}
+
+const modelGroup=new THREE.Group(); scene.add(modelGroup);
+const meshes=[], byMuscle={};
+let bonesOn=true, otherOn=false;
+const manager=new THREE.LoadingManager();
+manager.onProgress=(u,loaded,total)=>{ el('loadPct').textContent='بيحمّل الموديل… '+Math.round(loaded/Math.max(total,1)*100)+'%'; };
+const draco=new DRACOLoader(manager); draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/'); draco.setDecoderConfig({type:'wasm'});
+const loader=new GLTFLoader(manager); loader.setDRACOLoader(draco);
+function onModel(gltf){
+ const model=gltf.scene;
+ const box=new THREE.Box3().setFromObject(model);
+ const size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
+ const s=3.4/Math.max(size.y,0.001);
+ model.scale.setScalar(s);
+ model.position.set(-center.x*s, -box.min.y*s, -center.z*s);
+ modelGroup.add(model);
+ model.traverse(o=>{
+   if(!o.isMesh) return;
+   const u=o.userData||{};
+   const type=u.type||'other';
+   o.material=(type==='muscle'?MUSCLE_MAT:type==='bone'?BONE_MAT:OTHER_MAT).clone();
+   const mapped = type==='muscle'? mapMesh(u.name) : null;
+   o.userData.mapped=mapped;
+   o.userData.baseVisible = type==='muscle' ? true : type==='bone' ? true : false;
+   o.visible=o.userData.baseVisible;
+   meshes.push(o);
+   if(mapped){ (byMuscle[mapped.mk]=byMuscle[mapped.mk]||[]).push(o); }
+ });
+ el('loading').style.display='none';
+}
+loader.load(MODEL_URLS[0], onModel, undefined, ()=>{ loader.load(MODEL_URLS[1], onModel, undefined, ()=>{ el('loadPct').textContent='الموديل محمّلش — اتأكد من النت وحدّث الصفحة.'; }); });
+
+// ================= MUSCLE DATA (name, function, origin->insertion, heads) =================
+const M={
+masseter:{n:'Masseter',f:'عضلة المضغ الأساسية: بتقفل الفك وترفع الفك السفلي بقوة.',o:'Zygomatic arch ← Mandible',heads:[]},
+temporalis:{n:'Temporalis',f:'بتقفل الفك وترجع الفك السفلي لورا — من عضلات المضغ.',o:'Temporal bone ← Mandible',heads:[]},
+scm:{n:'Sternocleidomastoid',f:'بتلف الراس للجهة العكسية وتميّلها لنفس الجهة، وبتتني الرقبة لقدام لو الاتنين اشتغلوا.',o:'Sternum + Clavicle ← Mastoid (skull)',heads:[
+ {id:'sternal',n:'Sternal Head',f:'الرأس اللي طالعة من عظمة القص: بتساعد في تني الرقبة ولف الراس.',o:'Sternum ← Mastoid'},
+ {id:'clavicular',n:'Clavicular Head',f:'الرأس اللي طالعة من الترقوة: بتثبّت الرقبة وبتساعد في اللف والميل.',o:'Clavicle ← Mastoid'}]},
+trapezius:{n:'Trapezius',f:'عضلة كبيرة على شكل معيّن بتغطي الرقبة وأعلى الضهر وبتحرّك لوح الكتف في كل الاتجاهات.',o:'Skull + Spine (C7-T12) ← Clavicle + Scapula',heads:[
+ {id:'upper',n:'Upper Part',f:'الجزء العلوي: بيرفع الكتف لفوق (زي ما تهز كتفك) وبيسند الرقبة.',o:'Skull + neck ← Clavicle'},
+ {id:'middle',n:'Middle Part',f:'الجزء الأوسط: بيقرّب لوحين الكتف لبعض لورا.',o:'Upper thoracic spine ← Scapula'},
+ {id:'lower',n:'Lower Part',f:'الجزء السفلي: بيشد لوح الكتف لتحت وبيثبته وانت بترفع دراعك.',o:'Lower thoracic spine ← Scapula'}]},
+pecMajor:{n:'Pectoralis Major',f:'عضلة الصدر الكبيرة: بتقرّب الدراع لجوه وتلفّه داخليًا — أساس تمارين الضغط والبنش.',o:'Clavicle + Sternum + Ribs ← Humerus',heads:[
+ {id:'clav',n:'Clavicular Head',f:'الرأس العلوية: بترفع الدراع لقدام وللفوق (flexion) — بتتفعّل أكتر في الـ incline press.',o:'Clavicle ← Humerus'},
+ {id:'sternal',n:'Sternocostal Head',f:'الرأس السفلية والأكبر: بتسحب الدراع لتحت ولجوه بقوة — أساس الـ flat والـ decline press.',o:'Sternum + Ribs ← Humerus'}]},
+pecMinor:{n:'Pectoralis Minor',f:'عضلة صغيرة تحت الكبيرة: بتثبّت لوح الكتف وتشده لتحت ولقدام.',o:'Ribs 3-5 ← Scapula (coracoid)',heads:[]},
+deltoid:{n:'Deltoid',f:'بتدّي الكتف شكله المدوّر وبترفع الدراع في كل الاتجاهات حسب الجزء الشغال.',o:'Clavicle + Scapula ← Humerus',heads:[
+ {id:'ant',n:'Anterior Head',f:'الأمامية: بترفع الدراع لقدام ولجوه — بتشتغل في الضغط والرفع الأمامي.',o:'Clavicle ← Humerus'},
+ {id:'lat',n:'Lateral Head',f:'الجانبية: بترفع الدراع لبرّه بعيد عن الجسم (abduction) — أساس الـ lateral raises.',o:'Scapula (acromion) ← Humerus'},
+ {id:'post',n:'Posterior Head',f:'الخلفية: بتسحب الدراع لورا وتلفّه لبرّه — بتشتغل في التجديف والـ reverse fly.',o:'Scapula (spine) ← Humerus'}]},
+biceps:{n:'Biceps Brachii',f:'أشهر عضلة في الدراع: بتتني الكوع وتلف الساعد لبرّه (supination) وبتساعد الكتف من قدام.',o:'Scapula ← Radius',heads:[
+ {id:'long',n:'Long Head',f:'الرأس الطويلة برّه الدراع: بتمر جوه مفصل الكتف، بتتني الكوع وتلف الساعد وبتثبّت راس عظمة العضد.',o:'Scapula (supraglenoid) ← Radius'},
+ {id:'short',n:'Short Head',f:'الرأس القصيرة جوه الدراع: شريكة الطويلة في تني الكوع، وبتساعد في تقريب الدراع لجوه.',o:'Scapula (coracoid) ← Radius'}]},
+brachialis:{n:'Brachialis',f:'تحت البايسبس: بتني الكوع في أي وضع للساعد — عضلة شغالة صامتة بتزق البايسبس لبرّه فتبان أكبر.',o:'Humerus ← Ulna',heads:[]},
+triceps:{n:'Triceps Brachii',f:'بتفرد الكوع وبتشكّل حوالي تلتين حجم الدراع — ليها ٣ رؤوس.',o:'Scapula + Humerus ← Ulna (elbow)',heads:[
+ {id:'long',n:'Long Head',f:'الرأس الطويلة جوه ورا: الوحيدة اللي بتعدي مفصل الكتف، بتفرد الكوع وبتسحب الدراع لورا — بتتفعّل أكتر والدراع مرفوع.',o:'Scapula ← Ulna'},
+ {id:'lateral',n:'Lateral Head',f:'الرأس الخارجية: اللي باينة من برّه وبتعمل شكل حدوة الحصان — بتفرد الكوع بقوة.',o:'Humerus ← Ulna'},
+ {id:'medial',n:'Medial Head',f:'الرأس العميقة تحت الاتنين: شغالة في كل فرد للكوع وخصوصًا الحركات البطيئة.',o:'Humerus ← Ulna'}]},
+brachioradialis:{n:'Brachioradialis',f:'على الساعد من فوق: بتتني الكوع والساعد في النص (زي مسكة الشاكوش) — أساس الـ hammer curl.',o:'Humerus ← Radius (wrist)',heads:[]},
+foreFlex:{n:'Forearm Flexors',f:'مجموعة عضلات قدام الساعد: بتتني الرسغ والصوابع وبتعمل قبضة إيد قوية.',o:'Humerus + Ulna ← Hand + fingers',heads:[]},
+foreExt:{n:'Forearm Extensors',f:'مجموعة عضلات ورا الساعد: بتفرد الرسغ والصوابع وبتفتح القبضة.',o:'Humerus ← Hand + fingers',heads:[]},
+serratus:{n:'Serratus Anterior',f:'على جنب الضلوع زي سنان المشط: بتزق لوح الكتف لقدام وبتثبته — عضلة اللكمة (punching muscle).',o:'Ribs 1-8 ← Scapula',heads:[]},
+rectusAbd:{n:'Rectus Abdominis',f:'الـ six-pack: بتتني الجذع لقدام وبتضغط البطن وبتثبّت الحوض.',o:'Pubis ← Ribs 5-7 + Sternum',heads:[]},
+oblique:{n:'External Oblique',f:'عضلة جنب البطن: بتلف الجذع وتميّله وبتدعم منطقة الوسط.',o:'Ribs 5-12 ← Pelvis + Linea alba',heads:[]},
+latDorsi:{n:'Latissimus Dorsi',f:'أعرض عضلة في الضهر: بتسحب الدراع لتحت ولورا — أساس العقلة (pull-ups) والتجديف والعوم.',o:'Spine + Pelvis + Ribs ← Humerus',heads:[]},
+teresMajor:{n:'Teres Major',f:'تحت الكتف ورا: بتساعد اللاتس في سحب الدراع لتحت ولورا ولفّه لجوه.',o:'Scapula ← Humerus',heads:[]},
+infraspinatus:{n:'Infraspinatus',f:'من عضلات الـ rotator cuff ورا لوح الكتف: بتلف الدراع لبرّه وبتثبّت مفصل الكتف.',o:'Scapula ← Humerus',heads:[]},
+rhomboids:{n:'Rhomboids',f:'بين العمود الفقري ولوح الكتف: بتقرّب اللوحين لبعض وتثبتهم — عضلة القعدة المظبوطة.',o:'Spine ← Scapula',heads:[]},
+erector:{n:'Erector Spinae',f:'شريط العضلات حوالين العمود الفقري: بتفرد الضهر وبتوقّف الجذع طول اليوم.',o:'Pelvis + Spine ← Spine + Ribs',heads:[]},
+gluteMax:{n:'Gluteus Maximus',f:'أكبر وأقوى عضلة في الجسم: بتفرد الفخذ لورا — في الطلوع والجري والسكوات.',o:'Pelvis + Sacrum ← Femur + IT band',heads:[]},
+gluteMed:{n:'Gluteus Medius',f:'على الجنب فوق: بتبعد الفخذ لبرّه وبتثبّت الحوض وانت واقف على رجل واحدة أو ماشي.',o:'Pelvis ← Femur',heads:[]},
+tfl:{n:'Tensor Fasciae Latae',f:'صغيرة قدام الجنب: بتساعد في تني الفخذ وتبعيده وبتثبّت الركبة عن طريق الـ IT band.',o:'Pelvis ← Tibia (IT band)',heads:[]},
+iliopsoas:{n:'Iliopsoas',f:'أهم عضلة بتتني الفخذ من الحوض: شغالة في المشي والجري ورفع الرجل.',o:'Spine + Pelvis ← Femur',heads:[]},
+sartorius:{n:'Sartorius',f:'أطول عضلة في الجسم: شريط رفيع نازل بالعرض على الفخذ، بتساعد في تني الفخذ والركبة ولف الرجل لبرّه (قعدة التربيع).',o:'Pelvis ← Tibia (inner)',heads:[]},
+quads:{n:'Quadriceps Femoris',f:'رباعية قدام الفخذ: بتفرد الركبة وهي المحرك الأساسي للسكوات وطلوع السلالم والشوط.',o:'Pelvis + Femur ← Tibia (via patella)',heads:[
+ {id:'rf',n:'Rectus Femoris',f:'الرأس اللي في النص وقدام: الوحيدة اللي بتعدي مفصل الفخذ، بتفرد الركبة وبتتني الفخذ — عضلة الشوط.',o:'Pelvis ← Tibia'},
+ {id:'vl',n:'Vastus Lateralis',f:'الرأس الخارجية والأكبر: بتفرد الركبة وبتدّي الفخذ عرضه من برّه.',o:'Femur ← Tibia'},
+ {id:'vm',n:'Vastus Medialis',f:'الرأس الداخلية فوق الركبة (شكل الدمعة): بتفرد آخر مدى للركبة وبتثبّت الرضفة.',o:'Femur ← Tibia'},
+ {id:'vi',n:'Vastus Intermedius',f:'الرأس العميقة تحت الـ Rectus Femoris: بتفرد الركبة وبتدعمها من العمق — مش باينة على السطح.',o:'Femur ← Tibia'}]},
+addLongus:{n:'Adductor Longus',f:'من مجموعة المقرّبات جوه الفخذ: بتقرّب الرجلين لبعض وبتساعد في تني الفخذ.',o:'Pubis ← Femur',heads:[]},
+gracilis:{n:'Gracilis',f:'شريط رفيع على الفخذ من جوه: بيقرّب الفخذ وبيساعد في تني الركبة.',o:'Pubis ← Tibia (inner)',heads:[]},
+hamstrings:{n:'Hamstrings',f:'مجموعة ورا الفخذ: بتتني الركبة وبتفرد الفخذ لورا — أساس السرعة والجري، وإصابتها شائعة في الكورة.',o:'Pelvis (ischium) ← Tibia + Fibula',heads:[
+ {id:'bf',n:'Biceps Femoris',f:'الجزء الخارجي من الهامسترينج: بيتني الركبة وبيلف الساق لبرّه.',o:'Pelvis + Femur ← Fibula'},
+ {id:'st',n:'Semitendinosus',f:'الجزء الداخلي الرفيع: بيتني الركبة ويفرد الفخذ وبيلف الساق لجوه.',o:'Pelvis ← Tibia (inner)'},
+ {id:'sm',n:'Semimembranosus',f:'الجزء الداخلي العريض والعميق: شريك الـ Semitendinosus في تني الركبة وفرد الفخذ.',o:'Pelvis ← Tibia'}]},
+gastroc:{n:'Gastrocnemius',f:'عضلة السمانة البارزة: بترفع الكعب وتدفع الجسم لقدام في المشي والجري والنط.',o:'Femur ← Heel (Achilles tendon)',heads:[
+ {id:'med',n:'Medial Head',f:'الرأس الداخلية والأكبر: بترفع الكعب وبتساعد في تني الركبة.',o:'Femur (medial) ← Heel'},
+ {id:'lat',n:'Lateral Head',f:'الرأس الخارجية: شريكة الداخلية في رفع الكعب والدفع.',o:'Femur (lateral) ← Heel'}]},
+soleus:{n:'Soleus',f:'تحت السمانة: عضلة الوقوف والمشي الطويل — بتشتغل والركبة متنية، وبتضخ الدم من الرجل للقلب.',o:'Tibia + Fibula ← Heel (Achilles)',heads:[]},
+tibAnt:{n:'Tibialis Anterior',f:'قدام القصبة: بترفع مشط الرجل لفوق وبتمنعك تتعثر وانت ماشي.',o:'Tibia ← Foot (inner)',heads:[]},
+peroneus:{n:'Fibularis (Peroneus) Longus',f:'على الساق من برّه: بتقلب مشط الرجل لبرّه وبتدعم قوس القدم.',o:'Fibula ← Foot',heads:[]}
+};
+const GENERAL=[
+ {k:['كام عضلة','عدد العضلات','how many muscles'],a:'في جسم الإنسان أكتر من 600 عضلة هيكلية، وحوالي 40% من وزن الجسم عضلات.'},
+ {k:['اكبر عضلة','أكبر عضلة','biggest muscle','largest muscle'],a:'أكبر عضلة هي الـ Gluteus Maximus (عضلة المؤخرة الكبيرة) — وهي كمان من أقوى عضلات الجسم لأنها بتفرد الفخذ ضد الجاذبية.'},
+ {k:['اقوى عضلة','أقوى عضلة','strongest muscle'],a:'من حيث قوة العضّ: الـ Masseter (عضلة المضغ) من أقواهم. ومن حيث الشغل العام: الـ Gluteus Maximus والـ Quadriceps بيولّدوا أكبر قوة حركة.'},
+ {k:['اطول عضلة','أطول عضلة','longest muscle'],a:'أطول عضلة هي الـ Sartorius — شريط رفيع نازل بالعرض على قدام الفخذ من الحوض لحد جوه الركبة.'},
+ {k:['كام عظمة','عدد العظام','how many bones'],a:'الهيكل العظمي للبالغ فيه 206 عظمة.'},
+ {k:['tendon','وتر','الاوتار','الأوتار'],a:'الـ Tendon هو حبل نسيج قوي بيوصل العضلة بالعظمة وينقل قوة الشد. أشهر واحد: وتر أكيلس (Achilles) اللي بيوصل السمانة بالكعب.'},
+ {k:['ligament','رباط','الاربطة','الأربطة'],a:'الـ Ligament بيوصل عظمة بعظمة حوالين المفصل وبيثبته — غير الـ tendon اللي بيوصل عضلة بعظمة.'},
+ {id:'achilles',k:['achilles','اكيلس','أكيلس'],a:'وتر أكيلس (Achilles tendon) أكبر وأقوى وتر في الجسم، بيوصل عضلتين السمانة (Gastrocnemius + Soleus) بعظمة الكعب.'}
+];
+
+
+
+// ================= SELECTION =================
+const ray=new THREE.Raycaster(), ptr=new THREE.Vector2();
+let selMk=null, selHead=null, selMeshes=[], mode='none', labelsOn=false;
+const mKick=el('mKick'), mName=el('mName'), mSub=el('mSub'), mInfo=el('mInfo'), mOrg=el('mOrg'), headsEl=el('heads');
+// single floating label for selected structure
+const labelCanvas=document.createElement('canvas'); labelCanvas.width=512; labelCanvas.height=104;
+const labelSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(labelCanvas),transparent:true,depthTest:false}));
+labelSprite.scale.set(1.05,0.213,1); labelSprite.visible=false; scene.add(labelSprite);
+function drawLabel(text){
+ const g=labelCanvas.getContext('2d'); g.clearRect(0,0,512,104);
+ g.font='bold 40px system-ui'; g.textAlign='center';
+ const w=Math.min(500,g.measureText(text).width+36);
+ g.fillStyle='rgba(10,10,12,0.78)'; g.beginPath(); g.roundRect((512-w)/2,18,w,66,16); g.fill();
+ g.fillStyle='#ffb37a'; g.fillText(text,256,63);
+ labelSprite.material.map.needsUpdate=true;
+}
+function groupBox(list){
+ const b=new THREE.Box3(); list.forEach(m=>b.expandByObject(m)); return b;
+}
+function paintSelection(){
+ meshes.forEach(m=>{ const inG=selMeshes.includes(m);
+  const specific = inG && (!selHead || !selMk || (m.userData.mapped&&m.userData.mapped.hid===selHead) || !(selMeshes.some(x=>x.userData.mapped&&x.userData.mapped.hid===selHead)));
+  if(inG){ m.material.emissive.setHex(0xf97316); m.material.emissiveIntensity=specific?0.85:0.30; m.userData.pulse=specific; }
+  else { m.material.emissive.setHex(0x000000); m.material.emissiveIntensity=0; m.userData.pulse=false; } });
+}
+function applyMode(){
+ meshes.forEach(m=>{ const type=m.userData.type||'other';
+  let vis = type==='muscle'? true : type==='bone'? bonesOn : otherOn;
+  if(mode==='isolate'&&selMeshes.length) vis = selMeshes.includes(m);
+  m.visible=vis;
+  if(mode==='fade'&&selMeshes.length){ const inG=selMeshes.includes(m); m.material.transparent=!inG; m.material.opacity=inG?1:0.13; }
+  else if(type!=='other'||otherOn){ if(!(type==='other')){ m.material.transparent=false; m.material.opacity=1; } }
+ });
+ updateLabel();
+}
+function updateLabel(){
+ if(!labelsOn||!selMeshes.length){ labelSprite.visible=false; return; }
+ const b=groupBox(selMeshes); const c=b.getCenter(new THREE.Vector3()); const sz=b.getSize(new THREE.Vector3());
+ labelSprite.position.set(c.x, b.max.y+0.16, c.z);
+ drawLabel(mName.textContent);
+ labelSprite.visible=true;
+}
+function showHeads(mk,curHid){
+ headsEl.innerHTML=''; if(!mk) return;
+ const heads=(M[mk].heads||[]); if(!heads.length) return;
+ const all=document.createElement('button'); all.textContent='العضلة كلها'; if(!curHid)all.classList.add('active');
+ all.onclick=()=>selectGroup(mk,null); headsEl.appendChild(all);
+ heads.forEach(h=>{ const b=document.createElement('button'); b.textContent=h.n; if(curHid===h.id)b.classList.add('active');
+  b.onclick=()=>selectGroup(mk,h.id); headsEl.appendChild(b); });
+}
+function selectGroup(mk,hid){
+ selMk=mk; selHead=hid||null;
+ selMeshes=(byMuscle[mk]||[]).slice();
+ const info=M[mk], heads=info.heads||[];
+ const headObj=hid? heads.find(h=>h.id===hid):null;
+ mKick.textContent=heads.length? (info.n.toUpperCase()+' • '+heads.length+' HEADS') : (info.n.toUpperCase()+' • SINGLE MUSCLE');
+ mName.textContent=info.n;
+ mSub.textContent=headObj? ('◉ '+headObj.n) : (heads.length?'اختار رأس من تحت — لو الرأس منفصلة في المجسّم هتتنوّر لوحدها':'');
+ mInfo.textContent=headObj? headObj.f : info.f;
+ mOrg.textContent=(headObj&&headObj.o)? headObj.o : info.o;
+ showHeads(mk,hid); paintSelection(); applyMode();
+}
+function selectMesh(mesh){
+ const u=mesh.userData, mapped=u.mapped;
+ if(mapped&&M[mapped.mk]){ selectGroup(mapped.mk, mapped.hid||null); return; }
+ selMk=null; selHead=null; selMeshes=[mesh];
+ const nm=u.nameDetail||u.name||'Structure';
+ mKick.textContent=((u.type||'structure').toUpperCase())+(u.name&&u.nameDetail&&u.name!==u.nameDetail?' • '+u.name.toUpperCase():'');
+ mName.textContent=nm;
+ mSub.textContent='';
+ mInfo.textContent=cleanDesc(u.name,u.description)||'دوس على عضلة من العضلات الكبيرة عشان يطلع شرحها المفصّل ورؤوسها.';
+ mOrg.textContent=u.wikiLink? ('Wikipedia: '+u.wikiLink):'';
+ headsEl.innerHTML='';
+ paintSelection(); applyMode();
+}
+let downAt=0, downXY=null;
+renderer.domElement.addEventListener('pointerdown',e=>{ downAt=Date.now(); downXY=[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(Date.now()-downAt>320||!downXY) return;
+ if(Math.hypot(e.clientX-downXY[0],e.clientY-downXY[1])>9) return;
+ ptr.x=(e.clientX/innerWidth)*2-1; ptr.y=-(e.clientY/innerHeight)*2+1;
+ ray.setFromCamera(ptr,camera);
+ const hits=ray.intersectObjects(meshes.filter(m=>m.visible&&m.material.opacity>0.5),false);
+ if(hits.length) selectMesh(hits[0].object);
+});
+// camera + UI
+let camAnim=null;
+function flyTo(pos,tgt,dur=650){ camAnim={p0:camera.position.clone(),t0:controls.target.clone(),p1:pos.clone(),t1:tgt.clone(),s:performance.now(),d:dur}; }
+const VIEWS={front:[new THREE.Vector3(0,1.8,5.4),HOME_TGT],back:[new THREE.Vector3(0,1.8,-5.4),HOME_TGT],left:[new THREE.Vector3(-5.4,1.8,0),HOME_TGT],right:[new THREE.Vector3(5.4,1.8,0),HOME_TGT],threequarter:[HOME_POS,HOME_TGT]};
+document.querySelectorAll('.presets button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.presets button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); const v=VIEWS[b.dataset.view]; flyTo(v[0],v[1]); });
+el('resetBtn').onclick=()=>flyTo(HOME_POS,HOME_TGT);
+el('fullBtn').onclick=()=>flyTo(HOME_POS,HOME_TGT);
+el('focusBtn').onclick=()=>{ if(!selMeshes.length)return; const b=groupBox(selMeshes); const c=b.getCenter(new THREE.Vector3()); const sz=b.getSize(new THREE.Vector3());
+ const dist=Math.max(0.55, sz.length()*1.15);
+ const dir=camera.position.clone().sub(controls.target).normalize().multiplyScalar(dist);
+ flyTo(c.clone().add(dir).add(new THREE.Vector3(0,0.05,0)),c); };
+el('inertiaChk').onchange=e=>{ controls.enableDamping=e.target.checked; };
+el('labelsBtn').onclick=()=>{ labelsOn=!labelsOn; el('labelsBtn').classList.toggle('on',labelsOn); updateLabel(); };
+el('bonesBtn').onclick=()=>{ bonesOn=!bonesOn; el('bonesBtn').classList.toggle('on',bonesOn); applyMode(); };
+el('otherBtn').onclick=()=>{ otherOn=!otherOn; el('otherBtn').classList.toggle('on',otherOn); applyMode(); };
+el('fadeBtn').onclick=()=>{ mode=mode==='fade'?'none':'fade'; el('fadeBtn').classList.toggle('on',mode==='fade'); el('isoBtn').classList.remove('on'); applyMode(); };
+el('isoBtn').onclick=()=>{ mode=mode==='isolate'?'none':'isolate'; el('isoBtn').classList.toggle('on',mode==='isolate'); el('fadeBtn').classList.remove('on'); applyMode(); };
+const listItems=el('listItems');
+Object.keys(M).sort((a,b)=>M[a].n.localeCompare(M[b].n)).forEach(mk=>{
+ const b=document.createElement('button'); b.className='mbtn';
+ const hc=(M[mk].heads||[]).length;
+ b.innerHTML=M[mk].n+'<small>'+(hc? hc+' heads / أجزاء':'single muscle')+'</small>';
+ b.onclick=()=>{ if((byMuscle[mk]||[]).length){ selectGroup(mk,null); el('listPanel').classList.remove('open'); el('focusBtn').click(); } };
+ listItems.appendChild(b);
+});
+el('listBtn').onclick=()=>el('listPanel').classList.add('open');
+el('listClose').onclick=()=>el('listPanel').classList.remove('open');
+
+
+// ================= AI ASSISTANT =================
+const ALIAS={biceps:['biceps','بايسبس','الباي','باى'],triceps:['triceps','ترايسبس','التراي'],deltoid:['deltoid','دلتويد','الكتف','shoulder'],pecMajor:['pectoralis','الصدر','bench','بنش'],pecMinor:['pectoralis minor'],quads:['quadriceps','كواد','الرباعية','الفخذ الامامي','الفخذ الأمامي'],hamstrings:['hamstring','هامسترينج','الخلفية','ورا الفخذ'],gastroc:['gastrocnemius','سمانة','السمانة','بطه','البطة','calf'],soleus:['soleus','سوليوس'],gluteMax:['gluteus maximus','جلوتس','المؤخرة','الارداف','الأرداف'],gluteMed:['gluteus medius'],latDorsi:['latissimus','اللاتس','المجنص','الضهر','back'],trapezius:['trapezius','ترابيس','الترابيز'],rectusAbd:['rectus abdominis','البطن','six-pack','six pack','سكس باك'],oblique:['oblique','الجوانب','الخواصر'],serratus:['serratus'],biceps2:[],scm:['sternocleidomastoid','رقبة','الرقبة'],sartorius:['sartorius','سارتوريوس'],tibAnt:['tibialis','قصبة','القصبة'],brachialis:['brachialis','براكياليس'],brachioradialis:['brachioradialis','هامر'],foreFlex:['forearm flexor','الساعد'],foreExt:['forearm extensor'],infraspinatus:['infraspinatus','rotator'],erector:['erector','اسفل الضهر','أسفل الظهر'],masseter:['masseter','المضغ','الفك'],latDorsi2:[]};
+
+function norm(s){ return (s||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').trim(); }
+function muscleAnswer(mk){
+ const info=M[mk], heads=info.heads||[];
+ let a=info.n+'\n'+info.f+'\nمن ← إلى: '+info.o;
+ if(heads.length){ a+='\n\nبتتقسم لـ '+heads.length+' رؤوس/أجزاء:'; heads.forEach(h=>{ a+='\n• '+h.n+': '+h.f; }); }
+ else a+='\n\nدي عضلة واحدة مش بتتقسم لرؤوس منفصلة ظاهرة على السطح.';
+ return a;
+}
+function localAnswer(qRaw){
+ const q=norm(qRaw);
+ if(selMk && (M[selMk].heads||[]).length){
+  const h=(M[selMk].heads).find(h=>q.includes(norm(h.n))||q.includes(norm(h.id)));
+  if(h) return M[selMk].n+' — '+h.n+'\n'+h.f+'\nمن ← إلى: '+(h.o||M[selMk].o);
+ }
+ for(const mk of Object.keys(M)){
+  const names=[M[mk].n.toLowerCase(),...((ALIAS[mk]||[]).map(norm))];
+  if(names.some(n=>n&&q.includes(n))){
+   const h=(M[mk].heads||[]).find(h=>q.includes(norm(h.n)));
+   if(h) return M[mk].n+' — '+h.n+'\n'+h.f+'\nمن ← إلى: '+(h.o||M[mk].o);
+   return muscleAnswer(mk);
+  }
+ }
+ if(q.includes('long head')) return 'في عضلتين مشهورين عندهم Long Head:\n\n'+muscleAnswer('biceps')+'\n\n'+muscleAnswer('triceps');
+ if(q.includes('short head')) return muscleAnswer('biceps');
+ for(const g of GENERAL){ if(g.k.some(k=>q.includes(norm(k)))) return g.a; }
+ // fall back to model metadata descriptions
+ const hit=meshes.find(m=>{ const nm=norm(m.userData.name||''); return nm && q.split(/\s+/).some(w=>w.length>3&&nm.includes(w)); });
+ if(hit&&hit.userData.description) return (hit.userData.nameDetail||hit.userData.name)+'\n'+cleanDesc(hit.userData.name,hit.userData.description);
+ return 'سؤال حلو — النسخة التجريبية دي بتجاوب من قاعدة بيانات العضلات اللي في التطبيق، وسؤالك برّه تغطيتها الحالية.\nجرّب تسأل عن عضلة باسمها (Biceps, Quadriceps, سمانة، صدر…) أو عن رأس (Long Head).\nولو عايز AI كامل يجاوب أي سؤال تشريح، حط مفتاح Gemini بتاعك تحت في نفس الشاشة وهيشتغل فورًا.';
+}
+const aiMsgs=el('aiMsgs');
+function addMsg(txt,who){ const d=document.createElement('div'); d.className='msg '+who; d.textContent=txt; aiMsgs.appendChild(d); aiMsgs.scrollTop=aiMsgs.scrollHeight; return d; }
+addMsg('أهلًا! أنا مساعد التشريح 🫀\nاسألني عن أي عضلة أو رأس — أو دوس على عضلة في المجسّم الأول وبعدين اسألني عنها هنا.','a');
+el('aiBtn').onclick=()=>el('aiPanel').classList.add('open');
+el('aiClose').onclick=()=>el('aiPanel').classList.remove('open');
+const keyInput=el('keyInput'); keyInput.value=localStorage.getItem('gemini_key')||'';
+el('keySave').onclick=()=>{ localStorage.setItem('gemini_key',keyInput.value.trim()); addMsg(keyInput.value.trim()?'اتحفظ المفتاح — من دلوقتي الأسئلة هتتجاوب بـ Gemini AI الكامل.':'اتشال المفتاح — راجعين لإجابات قاعدة البيانات.','a'); };
+async function askGemini(q,key){
+ const ctx='You are an anatomy tutor for an Egyptian student. Answer in Egyptian Arabic dialect, keep scientific/anatomical terms in English, be accurate and concise (max ~120 words). Currently selected muscle: '+(selMk? M[selMk].n : (selMeshes[0]? (selMeshes[0].userData.nameDetail||selMeshes[0].userData.name||'none') : 'none'))+'. Question: '+q;
+ const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:ctx}]}]})});
+ if(!r.ok) throw new Error('gemini '+r.status);
+ const j=await r.json();
+ return j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||null;
+}
+async function sendAI(){
+ const q=el('aiInput').value.trim(); if(!q)return;
+ el('aiInput').value=''; addMsg(q,'u');
+ const key=(localStorage.getItem('gemini_key')||'').trim();
+ if(key){ const wait=addMsg('بيفكّر…','a');
+  try{ const a=await askGemini(q,key); if(a){ wait.textContent=a; return; } wait.textContent=localAnswer(q); }
+  catch(e){ wait.textContent=localAnswer(q)+'\n\n(ملحوظة: الـ Gemini مردّش المرة دي، فدي إجابة قاعدة البيانات.)'; }
+  return;
+ }
+ addMsg(localAnswer(q),'a');
+}
+el('aiSend').onclick=sendAI;
+el('aiInput').addEventListener('keydown',e=>{ if(e.key==='Enter') sendAI(); });
+
+// ================= LOOP =================
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+function animate(){
+ requestAnimationFrame(animate);
+ const t=performance.now()*0.005;
+ if(camAnim){ const k=Math.min(1,(performance.now()-camAnim.s)/camAnim.d); const e=1-Math.pow(1-k,3);
+  camera.position.lerpVectors(camAnim.p0,camAnim.p1,e); controls.target.lerpVectors(camAnim.t0,camAnim.t1,e); if(k>=1)camAnim=null; }
+ selMeshes.forEach(m=>{ if(m.userData.pulse) m.material.emissiveIntensity=0.75+0.3*Math.sin(t); });
+ controls.update(); renderer.render(scene,camera);
+}
+animate();
+
+</script>
+</body>
+</html>
